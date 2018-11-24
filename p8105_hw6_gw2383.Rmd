@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = F, 
                       warning = F)
 library(tidyverse)
+library(leaps)
 theme_set(theme_bw())
 ```
 
@@ -24,6 +25,7 @@ theme_set(theme_bw())
 homi_df = 
   read.csv("./data/problem1/homicide-data.csv") %>% 
   janitor::clean_names() %>% 
+  filter(victim_race != "Unknown") %>% # delete unknown races
   mutate(city_state = paste(city, state, sep = ", "), 
          solved = ifelse(disposition == "Closed by arrest", 1, 0), # a binary indicator
          victim_race = ifelse(victim_race == "White", "White", "Nonwhite"), 
@@ -86,3 +88,47 @@ nest_glm_res %>%
 ```
 
 According to this plot, we can see that across every cities, non white victims tend to have more unsolved homicides comparing to white victims (with `Boston, MA` has the least extra unsolved and `Tampa, FL` has the most extra unsolved).
+
+## Problem 2
+
+### Load and clean the data
+
+```{r}
+bw_df = 
+  read.csv("./data/problem2/birthweight.csv") %>% 
+  as.tibble() %>% 
+  janitor::clean_names() %>% 
+  select(bwt, everything())
+```
+
+* We first checked if there is `NA` in this dataset, and found out that there are `r sum(is.na(bw_df))` `NA`s.
+
+* Second we check the collinearity:
+
+```{r}
+bw_df %>% 
+  cor() %>% 
+  knitr::kable()
+```
+
+We saw that the standard deviation for `pnumlbw` and `pnumsga` is 0, so we checked these two variables and found out that their sum is `r sum(bw_df$pnumlbw)` and `r sum(bw_df$pnumsga)`, which suggest that all the values in these two columns are 0s, so we need to remove these two columns.
+
+We also saw that cor(`ppwt`, `delwt`), cor(`ppwt`, `ppbmi`) and cor(`frace`, `mrace`) are $\geq 0.8$. In these case, we remove the `ppwt` and `frace` columns since mother race is more related to child and BMI is more representative than body weight. Then we change some variable to factors:
+
+```{r}
+bw_df =
+  bw_df %>% 
+  select(-pnumlbw, -pnumsga, -ppwt, -frace, -bhead) %>% 
+  mutate(babysex = factor(babysex),
+         malform = factor(malform),
+         mrace = factor(mrace, levels = c(1, 2, 3, 4, 8)))
+```
+
+### Propose a regression model for birthweight
+
+```{r, warning = T}
+bw_df %>% 
+  regsubsets(bwt ~ ., data = .) %>% 
+  summary()
+```
+
