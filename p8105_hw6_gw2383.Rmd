@@ -85,4 +85,4 @@ nest_glm_res %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-
+According to this plot, we can see that across every cities, non white victims tend to have more unsolved homicides comparing to white victims (with `Boston, MA` has the least extra unsolved and `Tampa, FL` has the most extra unsolved).
