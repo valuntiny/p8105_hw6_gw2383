@@ -1,0 +1,54 @@
+---
+title: "p8105_hw6_gw2383"
+author: "Guojing Wu"
+date: "11/23/2018"
+# output: html_document
+output:
+  github_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = F, 
+                      warning = F)
+library(tidyverse)
+theme_set(theme_bw())
+```
+
+## Problem 1
+
+### Tidy data
+
+```{r}
+homi_df = 
+  read.csv("./data/problem1/homicide-data.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(city_state = paste(city, state, sep = ", "), 
+         solved = ifelse(disposition == "Closed by arrest", 1, 0), # a binary indicator
+         victim_race = ifelse(victim_race == "White", "White", "Nonwhite"), 
+         victim_race = factor(victim_race, levels = c("White", "Nonwhite")), # a white / non white indicator
+         victim_age = as.numeric(victim_age)) %>% 
+  filter(!(city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL"))) # filter cities
+```
+
+### a logistic regression
+
+```{r}
+# first fit it
+fit_logistic =
+  homi_df %>% 
+  glm(solved ~ victim_age + victim_sex + victim_race, data = ., family = binomial())
+
+# then compute the odds ratio
+fit_logistic %>% 
+  broom::tidy() %>% 
+  mutate(OR = exp(estimate), 
+         CI_low = exp(estimate - std.error), 
+         CI_up = exp(estimate + std.error)) %>% 
+  select(term, OR, CI_low, CI_up, p.value) %>% 
+  knitr::kable()
+```
+
+
+
