@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = F)
 library(tidyverse)
 library(leaps)
+library(patchwork)
 theme_set(theme_bw())
 ```
 
@@ -111,14 +112,14 @@ bw_df %>%
   knitr::kable()
 ```
 
-We saw that the standard deviation for `pnumlbw` and `pnumsga` is 0, so we checked these two variables and found out that their sum is `r sum(bw_df$pnumlbw)` and `r sum(bw_df$pnumsga)`, which suggest that all the values in these two columns are 0s, so we need to remove these two columns.
+We saw that the standard deviation for `pnumlbw` and `pnumsga` is 0, so we looked these two variables and found out that their sum is `r sum(bw_df$pnumlbw)` and `r sum(bw_df$pnumsga)`, which suggest that all the values in these two columns are 0s, so we need to remove these two columns.
 
 We also saw that cor(`ppwt`, `delwt`), cor(`ppwt`, `ppbmi`) and cor(`frace`, `mrace`) are $\geq 0.8$. In these case, we remove the `ppwt` and `frace` columns since mother race is more related to child and BMI is more representative than body weight. Then we change some variable to factors:
 
 ```{r}
 bw_df =
   bw_df %>% 
-  select(-pnumlbw, -pnumsga, -ppwt, -frace, -bhead) %>% 
+  select(-pnumlbw, -pnumsga, -ppwt, -frace) %>% 
   mutate(babysex = factor(babysex),
          malform = factor(malform),
          mrace = factor(mrace, levels = c(1, 2, 3, 4, 8)))
@@ -126,9 +127,54 @@ bw_df =
 
 ### Propose a regression model for birthweight
 
-```{r, warning = T}
-bw_df %>% 
+We first use stepwise procedures to see how many parameters shall be included in this model:
+
+```{r, dpi = 300}
+res_leap = 
+  bw_df %>% 
   regsubsets(bwt ~ ., data = .) %>% 
   summary()
+
+res_leap = tibble(
+  number = c(2:10), 
+  cp = res_leap$cp,
+  adj = res_leap$adjr2,
+  bic = res_leap$bic
+)
+
+cp_p = ggplot(res_leap, aes(x = number, y = cp)) +
+  geom_point() +
+  labs(x = "number of parameters", y = "Cp Statistic")
+
+adj_p = ggplot(res_leap, aes(x = number, y = adj)) +
+  geom_point() +
+  labs(x = "number of parameters", y = "Adj R2")
+
+bic_p = ggplot(res_leap, aes(x = number, y = bic)) +
+  geom_point() +
+  labs(x = "number of parameters", y = "BIC")
+
+cp_p + adj_p + bic_p
 ```
+
+From the plot we can see that a model contains 8 predictors seems the best, then we used AIC criterion stepwise method to find these 8 parameters:
+
+```{r}
+lm(bwt ~ ., data = bw_df) %>% 
+  step(direction='backward')
+```
+
+So based on the result, the final paremeters we chose are: `intercept, blength, mrace, gaweeks, delwt, smoken, ppbmi, fincome`
+
+```{r}
+reg_optimal = lm(bwt ~ blength + mrace + gaweeks + delwt + smoken + ppbmi + fincome, data = bw_df)
+
+bw_df %>% 
+  modelr::add_predictions(reg_optimal) %>% 
+  modelr::add_residuals(reg_optimal) %>% 
+  ggplot(aes(x = pred, y = resid)) + geom_point()
+```
+
+### Compare your model to two others
+
 
