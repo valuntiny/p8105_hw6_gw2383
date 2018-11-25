@@ -11,7 +11,8 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       message = F, 
-                      warning = F)
+                      warning = F, 
+                      out.width = "90%")
 library(tidyverse)
 library(leaps)
 library(patchwork)
@@ -166,3 +167,5 @@ cv_df %>%
          model = fct_inorder(model)) %>% 
   ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
+
+Based on these plot, we saw there’s clearly some improvement in predictive accuracy gained by our optimal model.
