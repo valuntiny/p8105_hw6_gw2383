@@ -114,12 +114,12 @@ bw_df %>%
 
 We saw that the standard deviation for `pnumlbw` and `pnumsga` is 0, so we looked these two variables and found out that their sum is `r sum(bw_df$pnumlbw)` and `r sum(bw_df$pnumsga)`, which suggest that all the values in these two columns are 0s, so we need to remove these two columns.
 
-We also saw that cor(`ppwt`, `delwt`), cor(`ppwt`, `ppbmi`) and cor(`frace`, `mrace`) are $\geq 0.8$. In these case, we remove the `ppwt` and `frace` columns since mother race is more related to child and BMI is more representative than body weight. Then we change some variable to factors:
+We also saw that cor(`ppwt`, `delwt`), cor(`ppwt`, `ppbmi`) , cor(`ppbmi`, `delwt`), and cor(`frace`, `mrace`) are $\geq 0.8$. In these case, we remove the `ppwt`, `delwt` and `frace` columns since mother race is more related to child and weight gain and BMI are more representative than absolute body weight. Then we change some variable to factors:
 
 ```{r}
 bw_df =
   bw_df %>% 
-  select(-pnumlbw, -pnumsga, -ppwt, -frace) %>% 
+  select(-pnumlbw, -pnumsga, -ppwt, -frace, -delwt) %>% 
   mutate(babysex = factor(babysex),
          malform = factor(malform),
          mrace = factor(mrace, levels = c(1, 2, 3, 4, 8)))
@@ -127,47 +127,17 @@ bw_df =
 
 ### Propose a regression model for birthweight
 
-We first use stepwise procedures to see how many parameters shall be included in this model:
-
-```{r, dpi = 300}
-res_leap = 
-  bw_df %>% 
-  regsubsets(bwt ~ ., data = .) %>% 
-  summary()
-
-res_leap = tibble(
-  number = c(2:10), 
-  cp = res_leap$cp,
-  adj = res_leap$adjr2,
-  bic = res_leap$bic
-)
-
-cp_p = ggplot(res_leap, aes(x = number, y = cp)) +
-  geom_point() +
-  labs(x = "number of parameters", y = "Cp Statistic")
-
-adj_p = ggplot(res_leap, aes(x = number, y = adj)) +
-  geom_point() +
-  labs(x = "number of parameters", y = "Adj R2")
-
-bic_p = ggplot(res_leap, aes(x = number, y = bic)) +
-  geom_point() +
-  labs(x = "number of parameters", y = "BIC")
-
-cp_p + adj_p + bic_p
-```
-
-From the plot we can see that a model contains 8 predictors seems the best, then we used AIC criterion stepwise method to find these 8 parameters:
+We used AIC criterion stepwise method to find the optimal parameters:
 
 ```{r}
 lm(bwt ~ ., data = bw_df) %>% 
   step(direction='backward')
 ```
 
-So based on the result, the final paremeters we chose are: `intercept, blength, mrace, gaweeks, delwt, smoken, ppbmi, fincome`
+So based on the result, the final paremeters we chose are: `babysex + bhead + blength + fincome + gaweeks + mheight + mrace + parity + ppbmi + smoken + wtgain`
 
-```{r}
-reg_optimal = lm(bwt ~ blength + mrace + gaweeks + delwt + smoken + ppbmi + fincome, data = bw_df)
+```{r, dpi = 300}
+reg_optimal = lm(bwt ~ babysex + bhead + blength + fincome + gaweeks + mheight + mrace + parity + ppbmi + smoken + wtgain, data = bw_df)
 
 bw_df %>% 
   modelr::add_predictions(reg_optimal) %>% 
@@ -177,4 +147,22 @@ bw_df %>%
 
 ### Compare your model to two others
 
+```{r, dpi = 300}
+cv_df = 
+  modelr::crossv_mc(bw_df, 1000) %>% 
+  mutate(train = map(train, as.tibble), 
+         test = map(test, as.tibble)) %>% 
+  mutate(optimal_mod = map(train, ~lm(bwt ~ babysex + bhead + blength + fincome + gaweeks + mheight + mrace + parity + ppbmi + smoken + wtgain, data = .x)), 
+         test1_mod = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)), 
+         test2_mod = map(train, ~lm(bwt ~ bhead * blength * babysex, data = .x))) %>% 
+  mutate(rmse_optimal = map2_dbl(optimal_mod, test, ~modelr::rmse(model = .x, data = .y)), 
+         rmse_test1 = map2_dbl(test1_mod, test, ~modelr::rmse(model = .x, data = .y)),
+         rmse_test2 = map2_dbl(test2_mod, test, ~modelr::rmse(model = .x, data = .y)))
 
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  mutate(model = str_replace(model, "rmse_", ""),
+         model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
