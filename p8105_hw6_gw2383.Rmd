@@ -143,7 +143,9 @@ reg_optimal = lm(bwt ~ babysex + bhead + blength + fincome + gaweeks + mheight +
 bw_df %>% 
   modelr::add_predictions(reg_optimal) %>% 
   modelr::add_residuals(reg_optimal) %>% 
-  ggplot(aes(x = pred, y = resid)) + geom_point()
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point(aes(alpha = 0.3)) +
+  theme(legend.position = "none")
 ```
 
 ### Compare your model to two others
