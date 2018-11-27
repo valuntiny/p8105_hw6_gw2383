@@ -27,7 +27,6 @@ theme_set(theme_bw())
 homi_df = 
   read.csv("./data/problem1/homicide-data.csv") %>% 
   janitor::clean_names() %>% 
-  filter(victim_race != "Unknown") %>% # delete unknown races
   mutate(city_state = paste(city, state, sep = ", "), 
          solved = ifelse(disposition == "Closed by arrest", 1, 0), # a binary indicator
          victim_race = ifelse(victim_race == "White", "White", "Nonwhite"), 
@@ -42,6 +41,7 @@ homi_df =
 # first fit it
 fit_logistic =
   homi_df %>% 
+  filter(city_state == "Baltimore, MD") %>% 
   glm(solved ~ victim_age + victim_sex + victim_race, data = ., family = binomial())
 
 # then compute the odds ratio
